@@ -9,7 +9,7 @@ AudioSegment.ffmpeg = r"C:\Users\User\AppData\Local\Microsoft\WinGet\Packages\Gy
 AudioSegment.ffprobe = r"C:\Users\User\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-full_build\bin\ffprobe.exe"
 
 # 你可以继续运行下载和转换的代码
-def download_youtube_as_mp3(url, output_path="D:/MP3 convert/Export"):
+def download_youtube_as_mp3(url, output_path="你记得改"):
     # 创建输出文件夹（如果不存在）
     if not os.path.exists(output_path):
         os.makedirs(output_path)
