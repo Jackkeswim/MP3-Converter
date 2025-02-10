@@ -20,7 +20,7 @@
 
 ## 运行要求
 🔹 Windows 10 / 11（64 位）
-🔹 需要 `ffmpeg.exe`，请确保 `ffmpeg.exe` 与 `.exe` 文件位于同一目录。
+🔹 需要 `ffmpeg.exe` `ffprobe.exe`，请确保 `ffmpeg.exe` `ffprobe.exe` 与 `.exe` 文件位于同一目录。
 
 ## 常见问题
 ### ❓ 下载失败或转换失败
