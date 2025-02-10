@@ -1,4 +1,4 @@
-# YouTube MP3 下载器（EXE 版本）
+# youtube_to_mp3（EXE 版本）
 
 ## 介绍
 本项目是一个 Windows EXE 应用程序，可以方便地下载 YouTube 视频并将其转换为 MP3 音频文件。
@@ -11,7 +11,7 @@
 ✅ 免 Python 环境，双击运行即可使用
 
 ## 使用方法
-1. 下载 `YouTube MP3 下载器.exe` 文件。
+1. 下载 `youtube_to_mp3.exe` 文件。
 2. 双击运行程序。
 3. 在输入框中粘贴 YouTube 视频链接。
 4. 选择或更改 MP3 文件的保存路径。
