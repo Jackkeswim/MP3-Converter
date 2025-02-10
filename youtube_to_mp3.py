@@ -1,82 +1,283 @@
-import yt_dlp
+import sys
 import os
+import yt_dlp
+import subprocess
 from pydub import AudioSegment
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
+    QTextEdit, QFileDialog, QComboBox, QHBoxLayout, QFrame
+)
+from PyQt6.QtGui import QFont, QTextCursor, QIcon
+from PyQt6.QtCore import Qt, QUrl
 
-# 设置 LAME 编码器路径（确保 LAME 已正确安装并在系统路径中）
-# 在虚拟环境中使用正确的 ffmpeg 路径
-AudioSegment.converter = r"C:\Users\User\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-full_build\bin\ffmpeg.exe"
-AudioSegment.ffmpeg = r"C:\Users\User\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-full_build\bin\ffmpeg.exe"
-AudioSegment.ffprobe = r"C:\Users\User\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1-full_build\bin\ffprobe.exe"
+class ClickableTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self.setAcceptRichText(True)
 
-# 你可以继续运行下载和转换的代码
-def download_youtube_as_mp3(url, output_path="你记得改"):
-    # 创建输出文件夹（如果不存在）
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    def mousePressEvent(self, event):
+        pos = event.pos()
+        cursor = self.cursorForPosition(pos)
+        anchor = cursor.charFormat().anchorHref()
+        if anchor:
+            url = QUrl(anchor)
+            if url.scheme() == "folder":
+                path = url.path().lstrip('/')  # 移除开头的斜杠
+                if os.path.exists(path):
+                    if sys.platform == 'win32':
+                        os.startfile(os.path.dirname(path))
+                    elif sys.platform == 'darwin':
+                        subprocess.run(['open', os.path.dirname(path)])
+                    else:
+                        subprocess.run(['xdg-open', os.path.dirname(path)])
+        super().mousePressEvent(event)
 
-    # 配置 yt-dlp 只下载音频，不进行格式转换
-    ydl_opts = {
-        'format': 'bestaudio/best',  # 选择最佳音频格式
-        'outtmpl': f'{output_path}/%(title)s.%(ext)s',  # 设置输出路径和文件名
-        'quiet': False,  # 输出详细信息，设为True会隐藏所有日志
-        'noplaylist': False,  # 确保可以处理播放列表
-    }
 
-    # 使用 yt-dlp 下载音频
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        print(f"正在下载: {url}")
-        ydl.download([url])
+class YouTubeMP3Downloader(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("YouTube MP3 下载器")
+        self.setGeometry(200, 200, 800, 500)
+        self.setFont(QFont("Microsoft YaHei UI", 10))
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f5f5f5;
+                color: #333333;
+            }
+            QLabel {
+                color: #2c3e50;
+                font-weight: bold;
+                margin: 5px 0;
+            }
+            QLineEdit {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                background-color: white;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #2473a6;
+            }
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                background-color: white;
+            }
+            QComboBox:drop-down {
+                border: none;
+                padding-right: 20px;
+            }
+            QTextEdit {
+                background-color: white;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                padding: 10px;
+            }
+        """)
 
-    # 获取下载的所有文件
-    download_files = []
-    for file in os.listdir(output_path):
-        if file.endswith('.webm') or file.endswith('.m4a') or file.endswith('.mp4'):  # 添加更多音频格式检查
-            download_files.append(os.path.join(output_path, file))
+        main_layout = QVBoxLayout()
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
 
-    if not download_files:
-        print("下载失败")
-        return
+        language_layout = QHBoxLayout()
+        self.language_label = QLabel("语言 / Language:")
+        self.language_selector = QComboBox()
+        self.language_selector.addItems(["中文", "English"])
+        self.language_selector.currentIndexChanged.connect(self.change_language)
+        language_layout.addWidget(self.language_label)
+        language_layout.addWidget(self.language_selector)
+        language_layout.addStretch()
+        main_layout.addLayout(language_layout)
 
-    # 将下载的音频文件转换为 MP3
-    for download_file in download_files:
+        url_container = QFrame()
+        url_container.setStyleSheet("QFrame { background-color: white; border-radius: 8px; padding: 15px; }")
+        url_layout = QVBoxLayout(url_container)
+        self.label = QLabel("请输入 YouTube 视频链接：")
+        self.url_input = QLineEdit()
+        self.url_input.setPlaceholderText("https://www.youtube.com/watch?v=...")
+        url_layout.addWidget(self.label)
+        url_layout.addWidget(self.url_input)
+        main_layout.addWidget(url_container)
+
+        output_container = QFrame()
+        output_container.setStyleSheet("QFrame { background-color: white; border-radius: 8px; padding: 15px; }")
+        output_layout = QVBoxLayout(output_container)
+
+        output_header = QHBoxLayout()
+        self.output_label = QLabel("输出文件夹:")
+        output_header.addWidget(self.output_label)
+        output_layout.addLayout(output_header)
+
+        output_selection = QHBoxLayout()
+        self.output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Export")
+        self.output_display = QLineEdit(self.output_path)
+        self.output_display.setReadOnly(True)
+
+        self.browse_button = QPushButton("选择文件夹")
+        self.browse_button.setMaximumWidth(120)
+
+        self.open_folder_button = QPushButton("打开文件夹")
+        self.open_folder_button.setMaximumWidth(120)
+
+        output_selection.addWidget(self.output_display)
+        output_selection.addWidget(self.browse_button)
+        output_selection.addWidget(self.open_folder_button)
+        output_layout.addLayout(output_selection)
+
+        main_layout.addWidget(output_container)
+
+        self.download_button = QPushButton("下载并转换为 MP3")
+        self.download_button.setMinimumHeight(50)
+        self.download_button.clicked.connect(self.download_mp3)
+        main_layout.addWidget(self.download_button)
+
+        log_container = QFrame()
+        log_container.setStyleSheet("QFrame { background-color: white; border-radius: 8px; padding: 15px; }")
+        log_layout = QVBoxLayout(log_container)
+        log_label = QLabel("下载日志:")
+        self.log_output = ClickableTextEdit()
+        self.log_output.setMinimumHeight(150)
+        log_layout.addWidget(log_label)
+        log_layout.addWidget(self.log_output)
+        main_layout.addWidget(log_container)
+
+        self.setLayout(main_layout)
+
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.ffmpeg_path = os.path.join(self.base_path, "ffmpeg.exe")
+        self.ffprobe_path = os.path.join(self.base_path, "ffprobe.exe")
+
+        AudioSegment.converter = self.ffmpeg_path
+        AudioSegment.ffmpeg = self.ffmpeg_path
+        AudioSegment.ffprobe = self.ffprobe_path
+
+        self.browse_button.clicked.connect(self.select_output_folder)
+        self.open_folder_button.clicked.connect(self.open_output_folder)
+
+        self.language = "中文"
+        self.update_ui_text()
+
+    def open_output_folder(self):
+        """Open the output folder in file explorer"""
+        if os.path.exists(self.output_path):
+            if sys.platform == 'win32':
+                os.startfile(self.output_path)
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.run(['open', self.output_path])
+            else:  # linux
+                subprocess.run(['xdg-open', self.output_path])
+        else:
+            self.log("❌ 输出文件夹不存在！" if self.language == "中文" else "❌ Output folder doesn't exist!")
+
+    def log(self, message, file_path=None):
+        if file_path:
+            message = f"{message}"
+
+        self.log_output.append(message)
+        self.log_output.verticalScrollBar().setValue(
+            self.log_output.verticalScrollBar().maximum()
+        )
+        QApplication.processEvents()
+
+    def select_output_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "选择输出文件夹")
+        if folder:
+            self.output_path = folder
+            self.output_display.setText(folder)
+
+    def download_mp3(self):
+        url = self.url_input.text().strip()
+        if not url:
+            self.log("❌ 请输入 YouTube 视频链接！" if self.language == "中文" else "❌ Please enter a YouTube video URL!")
+            return
+
+        self.download_button.setEnabled(False)
+        self.download_button.setText("下载中..." if self.language == "中文" else "Downloading...")
+
         try:
-            # 使用 pydub 加载音频文件
-            audio = AudioSegment.from_file(download_file)
+            if not os.path.exists(self.output_path):
+                os.makedirs(self.output_path)
 
-            # 设置输出的MP3文件路径
-            output_mp3 = os.path.join(output_path, f'{os.path.splitext(os.path.basename(download_file))[0]}.mp3')
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': f'{self.output_path}/%(title)s.%(ext)s',
+                'quiet': False,
+                'noplaylist': False,
+            }
 
-            # 使用 LAME 编码器导出为 320kbps 的 MP3
-            audio.export(output_mp3, format="mp3", bitrate="320k", codec="libmp3lame")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                self.log(f"🎵 正在下载: {url}" if self.language == "中文" else f"🎵 Downloading: {url}")
+                ydl.download([url])
 
-            # 删除原始下载的文件（可选）
-            os.remove(download_file)
+            downloaded_files = [
+                os.path.join(self.output_path, f) for f in os.listdir(self.output_path)
+                if f.endswith(('.webm', '.m4a', '.mp4'))
+            ]
 
-            print(f"转换成功！MP3文件已保存至：{output_mp3}")
+            if not downloaded_files:
+                raise Exception("No files downloaded")
+
+            for file in downloaded_files:
+                audio = AudioSegment.from_file(file)
+                mp3_file = os.path.join(self.output_path, f"{os.path.splitext(os.path.basename(file))[0]}.mp3")
+                audio.export(mp3_file, format="mp3", bitrate="320k", codec="libmp3lame")
+                os.remove(file)
+
+                success_msg = f"✅ {'下载成功！MP3 已保存' if self.language == '中文' else 'Download complete! MP3 saved to'}: {mp3_file}"
+                self.log(success_msg, mp3_file)
 
         except Exception as e:
-            print(f"转换过程中发生错误: {e}")
+            self.log(f"⚠️ 错误: {str(e)}" if self.language == "中文" else f"⚠️ Error: {str(e)}")
 
-# 主循环，允许用户重复输入URL进行下载和转换
+        finally:
+            self.download_button.setEnabled(True)
+            self.download_button.setText("下载并转换为 MP3" if self.language == "中文" else "Download & Convert to MP3")
+
+    def change_language(self):
+        self.language = self.language_selector.currentText()
+        self.update_ui_text()
+
+    def update_ui_text(self):
+        if self.language == "中文":
+            self.setWindowTitle("YouTube MP3 下载器")
+            self.language_label.setText("语言 / Language:")
+            self.label.setText("请输入 YouTube 视频链接：")
+            self.output_label.setText("输出文件夹:")
+            self.browse_button.setText("选择文件夹")
+            self.open_folder_button.setText("打开文件夹")
+            self.download_button.setText("下载并转换为 MP3")
+        else:
+            self.setWindowTitle("YouTube MP3 Downloader")
+            self.language_label.setText("Language / 语言:")
+            self.label.setText("Enter YouTube Video URL:")
+            self.output_label.setText("Output Folder:")
+            self.browse_button.setText("Select Folder")
+            self.open_folder_button.setText("Open Folder")
+            self.download_button.setText("Download & Convert to MP3")
+
+
 def main():
-    while True:
-        # 提示用户输入YouTube视频URL
-        url = input("请输入YouTube视频URL（或输入 '退出' 来结束程序）：")
-        
-        # 如果用户输入 '退出'，则结束循环
-        if url.lower() == '退出':
-            print("退出程序")
-            break
-        
-        # 调用下载并转换音频的函数
-        download_youtube_as_mp3(url)
+    app = QApplication(sys.argv)
+    window = YouTubeMP3Downloader()
+    window.show()
+    sys.exit(app.exec())
 
-        # 提示用户是否继续下载
-        continue_choice = input("是否继续下载其他视频？（yes/no）：").strip().lower()
-        if continue_choice != 'yes':
-            print("程序结束")
-            break
 
-# 运行主函数
 if __name__ == "__main__":
     main()
